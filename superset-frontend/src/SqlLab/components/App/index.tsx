@@ -39,6 +39,16 @@ import TabbedSqlEditors from '../TabbedSqlEditors';
 import QueryAutoRefresh from '../QueryAutoRefresh';
 import PopEditorTab from '../PopEditorTab';
 import AppLayout from '../AppLayout';
+import AiChatWindow from 'src/features/aiAssistant/components/AiChatWindow';
+
+
+import {
+  addQueryEditor,
+  runQuery,
+  queryEditorSetSql,
+} from 'src/SqlLab/actions/sqlLab';
+
+
 
 const SqlLabStyles = styled.div`
   ${({ theme }) => css`
@@ -115,7 +125,7 @@ interface AppState {
 }
 
 class App extends PureComponent<AppProps, AppState> {
-  hasLoggedLocalStorageUsage: boolean;
+  hasLoggedLocalStorageUsage!: boolean;
 
   private boundOnHashChanged: () => void;
 
@@ -134,6 +144,76 @@ class App extends PureComponent<AppProps, AppState> {
     );
   }
 
+  handleAiRunSql = (event: any) => {
+    try {
+      // ✅ Extract both the sql and the new callback function
+      const { sql, onTabCreated } = event.detail || {};
+      if (!sql) return;
+
+      const { actions, sqlLab } = this.props as any;
+
+      const editors = sqlLab?.queryEditors || [];
+      const tabHistory = sqlLab?.tabHistory || [];
+
+      const activeEditorId = tabHistory[tabHistory.length - 1];
+      let activeEditor = editors.find((e: any) => e.id === activeEditorId);
+
+      if (!activeEditor && editors.length > 0) {
+        activeEditor = editors[0];
+      }
+
+      const targetDbId = activeEditor?.dbId || activeEditor?.databaseId;
+      const targetSchema = activeEditor?.schema;
+
+      if (!targetDbId) return;
+
+      let maxAiQueryNum = 0;
+      editors.forEach((editor: any) => {
+        const tabTitle = editor.name || editor.title || '';
+        const match = tabTitle.match(/^AI Generated Query(?:\s+(\d+))?$/);
+        if (match) {
+          const num = match[1] ? parseInt(match[1], 10) : 1;
+          if (num > maxAiQueryNum) {
+            maxAiQueryNum = num;
+          }
+        }
+      });
+      
+      const nextAiQueryNum = maxAiQueryNum + 1;
+      const dynamicTabName = `AI Generated Query ${nextAiQueryNum}`;
+
+      actions.addQueryEditor({
+        name: dynamicTabName,        
+        title: dynamicTabName,       
+        dbId: targetDbId,
+        schema: targetSchema || null,
+        sql: sql,                    
+        autorun: true,               
+      });
+
+      // ✅ Trigger the chat window callback with the exact name so it knows!
+      if (typeof onTabCreated === 'function') {
+        onTabCreated(dynamicTabName);
+      }
+
+      setTimeout(() => {
+        const { sqlLab: updatedSqlLab } = this.props as any;
+        const updatedEditors = updatedSqlLab?.queryEditors || [];
+        if (!updatedEditors.length) return;
+
+        const latestEditor = updatedEditors[updatedEditors.length - 1];
+
+        if (latestEditor) {
+          actions.queryEditorSetSql(latestEditor, sql);
+          actions.runQuery(latestEditor);
+        }
+      }, 500);
+
+    } catch (err) {
+      console.error('AI SQL listener error', err);
+    }
+  };
+
   componentDidMount() {
     window.addEventListener('hashchange', this.boundOnHashChanged);
 
@@ -141,6 +221,7 @@ class App extends PureComponent<AppProps, AppState> {
     // docs say setting this style on any div will prevent it, turns out it only works
     // when set on the body element.
     document.body.style.overscrollBehaviorX = 'none';
+    window.addEventListener('ai-run-sql', this.handleAiRunSql);
   }
 
   componentDidUpdate() {
@@ -175,6 +256,7 @@ class App extends PureComponent<AppProps, AppState> {
     document.body.style.overscrollBehaviorX = 'auto';
 
     Mousetrap.reset();
+    window.removeEventListener('ai-run-sql', this.handleAiRunSql);
   }
 
   onHashChanged() {
@@ -222,11 +304,43 @@ class App extends PureComponent<AppProps, AppState> {
           queries={queries}
           queriesLastUpdate={queriesLastUpdate}
         />
-        <PopEditorTab>
-          <AppLayout>
-            <TabbedSqlEditors />
-          </AppLayout>
-        </PopEditorTab>
+
+        {/* ✅ Split layout (Editor + AI Panel) */}
+        <div
+          style={{
+            display: 'flex',
+            height: '100%',
+            width: '100%',
+            overflow: 'hidden',
+          }}
+        >
+          {/* ✅ Left: SQL Editor */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              minWidth: 0, // ✅ IMPORTANT: prevents layout overflow
+            }}
+          >
+            <PopEditorTab>
+              <AppLayout>
+                <TabbedSqlEditors />
+              </AppLayout>
+            </PopEditorTab>
+          </div>
+
+          {/* ✅ Right: AI Assistant Panel (NO OVERLAY) */}
+          <div
+            style={{
+              display: 'flex',
+              height: '100%',
+            }}
+          >
+            <AiChatWindow />
+          </div>
+        </div>
       </SqlLabStyles>
     );
   }
@@ -239,12 +353,18 @@ function mapStateToProps(state: SqlLabRootState) {
     localStorageUsageInKilobytes,
     queries: sqlLab?.queries,
     queriesLastUpdate: sqlLab?.queriesLastUpdate,
+    sqlLab,
   };
 }
 
 const mapDispatchToProps = {
   addDangerToast,
   logEvent,
+
+  addQueryEditor,
+  runQuery,
+  queryEditorSetSql,
+
 };
 
 function mergeProps(

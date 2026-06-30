@@ -97,6 +97,11 @@ def create_app(
         if app.debug:
             start_local_extensions_watcher_thread(app)
 
+        
+        from superset.ai_assistant import init_app
+        init_app(app)
+
+
         return app
 
     # Make sure that bootstrap errors ALWAYS get logged
