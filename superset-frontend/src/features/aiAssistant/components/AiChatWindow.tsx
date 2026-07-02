@@ -44,7 +44,7 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const isSendingRef = useRef(false);
-
+  const isMountedRef = useRef(true);
 
   // ✅ Auto scroll
   useEffect(() => {
@@ -56,8 +56,21 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
     const loadHistory = async () => {
       try {
         const history = await fetchChatHistory();
-        if (Array.isArray(history)) {
+        console.log('[HISTORY LOADED]', history);
+        if (Array.isArray(history) && isMountedRef.current) {
           setMessages(history);
+
+          const latestMessage =
+            history.length > 0
+              ? history[history.length - 1]
+              : null;
+
+          const waitingForAssistant =
+            latestMessage?.role === 'user' &&
+            latestMessage.execution_status === 'completed';
+
+          setIsTyping(waitingForAssistant);
+          isSendingRef.current = waitingForAssistant;
         }
       } catch (err) {
         console.error('[AI Assistant] Failed to load persistent chat history:', err);
@@ -66,6 +79,14 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
 
     loadHistory();
   }, []); // Empty dependency array ensures this runs exactly once when window mounts
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // ✅ Resize logic
   const startResizing = useCallback(
@@ -94,20 +115,30 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
   );
   const handleSqlExecution = (
     response: AIChatMessage,
-    sqlBlock: { content: string }
+    sqlBlock: { content: string; question?: string }
   ) => {
 
     try {
       const sql = sqlBlock.content;
-      const context = response.question || response.context || '';
+      const rawContext = sqlBlock.question || response.context || '';
 
-      const finalSql = `
-        -- AI Generated Query
-        -- Context:
-        -- ${context}
+      const formattedQuestion = rawContext
+        .split('\n')
+        .filter(line => line.trim().length > 0)
+        .map((line, idx) => 
+          idx === 0 
+            ? `-- Question: ${line.trim()}` 
+            : `--           ${line.trim()}`
+        )
+        .join('\n');
 
-        ${sql}
-            `.trim();
+      const finalSql = [
+        '-- ==================================================',
+        '-- AI Generated Query',
+        formattedQuestion || '-- Question: (No question provided)',
+        '-- ==================================================',
+        sql
+      ].join('\n');
 
       
       // ✅ Pass a callback function in the event detail!
@@ -126,6 +157,9 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
                 execution_status: 'completed',
                 created_at: new Date().toISOString(),
               };
+              if (!isMountedRef.current) {
+                  return;
+              }
               setMessages(prev => [...prev, infoMsg]);
             }
           },
@@ -162,7 +196,7 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
     const userMsg: AIChatMessage = {
       id: Date.now(),
       role: 'user',
-      content: inputValue,
+      content: inputValue.trim(),
       attachments: lightweightAttachments,
       message_type: 'text',
       execution_status: 'completed',
@@ -180,14 +214,15 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
         content: userMsg.content!,
         attachments: lightweightAttachments,
         });
+        console.log('[AI RESPONSE RECEIVED]', response);
 
         const liveResponse: AIChatMessage = {
         ...response,
         isLive: true,
         };
         
-        if (liveResponse?.content) {
-            setMessages(prev => [...prev, liveResponse]);
+        if (isMountedRef.current) {
+          setMessages(prev => [...prev, liveResponse]);
         }
 
 
@@ -213,6 +248,7 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
 
             handleSqlExecution(liveResponse, {
                 content: foundSql.content,
+                question: parsed?.data?.question || '',
             });
             } else {
             }
@@ -231,12 +267,17 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
         created_at: new Date().toISOString(),
       };
 
-      setMessages(prev => [...prev, errorMsg]);
+      if (isMountedRef.current) {
+          setMessages(prev => [...prev, errorMsg]);
+      }
+
     } finally {
+    isSendingRef.current = false;
+    if (isMountedRef.current) {
       setIsTyping(false);
-      isSendingRef.current = false;
       setWarning(null);
     }
+}
   };
 
   return (
@@ -324,6 +365,7 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
                 setValue={setInputValue}
                 onSend={handleSend}
                 isStandalone={isStandalone}
+                isSending={isTyping}
                 attachmentEnabled={attachmentEnabled}
                 files={files}
                 setFiles={setFiles}

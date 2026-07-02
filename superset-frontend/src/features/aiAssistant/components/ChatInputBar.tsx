@@ -12,6 +12,7 @@ interface Props {
   setValue: (v: string) => void;
   onSend: () => void;
   isStandalone?: boolean;
+  isSending: boolean;
 
   attachmentEnabled: boolean;
   files: any[];
@@ -24,6 +25,7 @@ export default function ChatInputBar({
   setValue,
   onSend,
   isStandalone,
+  isSending,
   attachmentEnabled,
   files,
   setFiles,
@@ -61,6 +63,9 @@ export default function ChatInputBar({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();   // Prevent layout newline jump
+      if (isSending) {
+        return;
+      }
       onSend();             // Trigger message send
     }
   };
@@ -144,7 +149,7 @@ export default function ChatInputBar({
 
       <SendButton
         onClick={canSend ? onSend : undefined}
-        isDisabled={!canSend}
+        isDisabled={!canSend || isSending}
         style={{ marginBottom: '6px' }} // Keeps button perfectly spaced from the bottom edge
       >
         <SendOutlined />

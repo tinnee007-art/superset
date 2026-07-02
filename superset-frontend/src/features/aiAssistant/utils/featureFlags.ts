@@ -5,10 +5,15 @@ declare global {
         conf?: {
           FEATURE_FLAGS?: Record<string, boolean>;
         };
+        user?: {
+          username?: string;
+          email?: string;
+        };
       };
     };
   }
 }
+
 
 export const isFeatureEnabled = (
   flag: string,
