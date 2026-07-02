@@ -28,4 +28,3 @@ export const isFeatureEnabled = (
 
   return Boolean(flags[flag]);
 };
-``
