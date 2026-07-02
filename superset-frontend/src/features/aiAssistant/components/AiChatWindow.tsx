@@ -56,7 +56,6 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
     const loadHistory = async () => {
       try {
         const history = await fetchChatHistory();
-        console.log('[HISTORY LOADED]', history);
         if (Array.isArray(history) && isMountedRef.current) {
           setMessages(history);
 
@@ -214,7 +213,6 @@ export default function AiChatWindow({ isStandalone = false }: Props) {
         content: userMsg.content!,
         attachments: lightweightAttachments,
         });
-        console.log('[AI RESPONSE RECEIVED]', response);
 
         const liveResponse: AIChatMessage = {
         ...response,
