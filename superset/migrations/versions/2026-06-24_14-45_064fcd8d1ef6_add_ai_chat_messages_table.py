@@ -35,7 +35,7 @@ def upgrade():
         "ai_chat_messages",
         sa.Column(
             "id",
-            sa.BigInteger(),
+            sa.Integer(),
             primary_key=True,
             autoincrement=True,
         ),

@@ -9,12 +9,13 @@ from superset.ai_assistant.dao import AIChatDAO
 class AIChatService:
 
     @staticmethod
-    def save_user_message(user_id: int, content: str):
+    def save_user_message(user_id: int, content: str, request_id: str | None = None):
         return AIChatDAO.create_message(
             user_id=user_id,
             role="user",
             message_type="text",
             content=content,
+            request_id=request_id,
             execution_status="completed",
         )
 
@@ -24,6 +25,7 @@ class AIChatService:
         content: str,
         message_type: str = "text",
         execution_status: str = "completed",
+        request_id: str | None = None,
     ):
         return AIChatDAO.create_message(
             user_id=user_id,
@@ -31,6 +33,7 @@ class AIChatService:
             message_type=message_type,
             content=content,
             execution_status=execution_status,
+            request_id=request_id
         )
 
     @staticmethod
@@ -74,7 +77,12 @@ class AIChatService:
 
             response = requests.post(
                 url,
-                data={"question": content},
+                data={
+                        "question": content,
+                        "request_id": request_id,
+                        "user_id": user_info.get("id"),
+                        "username": user_info.get("username"),
+                    },
                 headers=headers,
                 timeout=timeout,
                 verify=False,

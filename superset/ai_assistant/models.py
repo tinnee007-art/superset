@@ -37,6 +37,10 @@ class AIChatMessage(db.Model):
         nullable=True,
     )
 
+    request_id = Column(
+        String(64),
+        nullable=True,
+    )
     created_at = Column(
         DateTime,
         nullable=False,

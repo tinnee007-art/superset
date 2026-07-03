@@ -4,6 +4,7 @@ from flask_appbuilder.api import expose
 from datetime import datetime
 import time
 import json
+import uuid
 
 from flask_login import login_required
 
@@ -73,17 +74,21 @@ class AIChatHistoryRestApi(BaseSupersetApi):
         if not user_id:
             return self.response(401, message="Unauthorized")
 
+        user_info = {
+            "id": current_user.id,
+            "username": current_user.username,
+        }
+
         body = request.json or {}
         content = body.get("content")
-        request_id = body.get("request_id")
-        user_info = body.get("user", {})
+        request_id = str(uuid.uuid4())
 
         if not content:
             return self.response(400, message="content is required")
 
         # 1. Always save the user's input
         if is_persistence_enabled():
-            AIChatService.save_user_message(user_id, content)
+            AIChatService.save_user_message(user_id, content, request_id=request_id)
 
         # 2. Global Fail-Safe Wrapper
         try:
@@ -107,7 +112,8 @@ class AIChatHistoryRestApi(BaseSupersetApi):
                     user_id,
                     content=ai_content,
                     message_type= message_type,
-                    execution_status= execution_status
+                    execution_status= execution_status,
+                    request_id=request_id
                 )
                 msg_id = ai_message.id
 
@@ -135,7 +141,8 @@ class AIChatHistoryRestApi(BaseSupersetApi):
                     user_id,
                     content=error_msg,
                     message_type="error",
-                    execution_status="failed"
+                    execution_status="failed",
+                    request_id=request_id
                 )
                 msg_id = saved_err.id
 

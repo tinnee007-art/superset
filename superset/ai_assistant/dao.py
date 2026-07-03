@@ -11,6 +11,7 @@ class AIChatDAO:
         message_type: str,
         content: str,
         execution_status: str | None = None,
+        request_id: str | None = None
     ) -> AIChatMessage:
 
         message = AIChatMessage(
@@ -18,7 +19,8 @@ class AIChatDAO:
             role=role,
             message_type=message_type,
             content=content,
-            execution_status=execution_status or "completed",  # ✅ FIX HERE
+            execution_status=execution_status or "completed",
+            request_id=request_id
         )
 
         db.session.add(message)
