@@ -1,5 +1,6 @@
 import { styled } from '@apache-superset/core/theme';
 import { keyframes } from '@apache-superset/core/theme';
+import { css } from '@emotion/react';
 
 interface ChatContainerProps {
   isCollapsed: boolean;
@@ -264,7 +265,12 @@ export const AvatarImg = styled.img<{ isLoading?: boolean }>`
   height: 15px;
   object-fit: contain;
   opacity: 0.92;
-  animation: ${({ isLoading }) => (isLoading ? `${botPulse} 1.5s ease-in-out infinite` : 'none')};
+
+  ${({ isLoading }) =>
+    isLoading &&
+    css`
+      animation: ${botPulse} 1.5s ease-in-out infinite;
+    `}
 `;
 
 /* ✅ MESSAGE BUBBLE WITH FIXED TEXT-SELECTION AND NATIVE THEMING */
