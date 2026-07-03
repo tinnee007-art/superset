@@ -17,7 +17,7 @@ def is_persistence_enabled() -> bool:
     Centralized check for chat history persistence config flag.
     Change the second parameter (False) to True if you want it enabled by default.
     """
-    return current_app.config.get("ENABLE_AI_CHAT_PERSISTENCE", True)
+    return current_app.config.get("ENABLE_AI_CHAT_PERSISTENCE", False)
 
 
 class AIChatHistoryRestApi(BaseSupersetApi):
